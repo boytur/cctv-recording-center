@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { CalendarIcon, Play, Pause, SkipBack, SkipForward, Download, ChevronDown } from 'lucide-react';
@@ -26,11 +26,20 @@ const Playback = () => {
     setPlaybackSpeed,
     skipForward,
     skipBackward,
+    fetchRecordings,
+    fetchTimeline,
   } = usePlaybackStore();
 
   const [showCameraSelect, setShowCameraSelect] = useState(false);
 
   const selectedCamera = cameras.find((c) => c.id === selectedCameraId);
+
+  useEffect(() => {
+    if (fetchRecordings && fetchTimeline && selectedCameraId && selectedDate) {
+      fetchRecordings(selectedCameraId, selectedDate);
+      fetchTimeline(selectedCameraId, selectedDate);
+    }
+  }, [fetchRecordings, fetchTimeline, selectedCameraId, selectedDate]);
 
   const formatCurrentTime = () => {
     const hours = Math.floor(currentTime / 3600);

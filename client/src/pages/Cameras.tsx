@@ -1,11 +1,18 @@
 import { Wifi, WifiOff, Circle, Video, Settings2 } from 'lucide-react';
 import Header from '@/components/Header';
 import { useCameraStore } from '@/store/cameraStore';
+import { useEffect } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/hooks/use-toast';
+import AddCameraSheet from '@/components/AddCameraSheet';
 
 const Cameras = () => {
-  const { cameras, toggleRecording } = useCameraStore();
+  const { cameras, toggleRecording, fetchCameras } = useCameraStore();
+
+  useEffect(() => {
+    // load camera list from API when page mounts
+    if (fetchCameras) fetchCameras();
+  }, [fetchCameras]);
 
   const handleToggleRecording = (cameraId: string, cameraName: string) => {
     toggleRecording(cameraId);
@@ -104,13 +111,8 @@ const Cameras = () => {
           ))}
         </div>
 
-        {/* Add Camera Button */}
-        <button className="w-full py-4 bg-primary/20 hover:bg-primary/30 border-2 border-dashed border-primary/50 rounded-xl transition-colors">
-          <div className="flex items-center justify-center gap-2 text-primary">
-            <Settings2 className="w-5 h-5" />
-            <span className="font-medium">เพิ่มกล้องใหม่</span>
-          </div>
-        </button>
+        {/* Add Camera */}
+        <AddCameraSheet />
       </main>
     </div>
   );

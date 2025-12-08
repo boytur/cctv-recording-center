@@ -26,6 +26,8 @@ interface PlaybackState {
   playbackSpeed: number;
   recordings: RecordingFile[];
   timelineSegments: RecordingSegment[];
+  fetchRecordings?: (cameraId: string, date: Date) => Promise<void>;
+  fetchTimeline?: (cameraId: string, date: Date) => Promise<void>;
   setSelectedDate: (date: Date) => void;
   setSelectedCameraId: (cameraId: string) => void;
   setCurrentTime: (time: number) => void;
@@ -90,8 +92,48 @@ export const usePlaybackStore = create<PlaybackState>((set) => ({
   currentTime: 0,
   isPlaying: false,
   playbackSpeed: 1,
-  recordings: generateMockRecordings(),
-  timelineSegments: generateMockTimeline(),
+  recordings: [],
+  timelineSegments: [],
+  fetchRecordings: async (cameraId: string, date: Date) => {
+    try {
+      const d = date.toISOString().slice(0, 10);
+      const res = await fetch(`/api/recordings?cameraId=${encodeURIComponent(cameraId)}&date=${d}`);
+      if (!res.ok) throw new Error('no recordings');
+      const raw = (await res.json()) as Array<Record<string, unknown>>;
+      const recs: RecordingFile[] = raw.map((r) => ({
+        id: String(r['id'] ?? ''),
+        cameraId: String(r['cameraId'] ?? r['camera_id'] ?? ''),
+        cameraName: String(r['cameraName'] ?? r['camera_name'] ?? ''),
+        startTime: new Date(String(r['startTime'] ?? r['start_time'] ?? new Date().toISOString())),
+        endTime: new Date(String(r['endTime'] ?? r['end_time'] ?? new Date().toISOString())),
+        duration: Number(r['duration'] ?? 0),
+        thumbnailUrl: String(r['thumbnailUrl'] ?? r['thumbnail_url'] ?? '/placeholder.svg'),
+        fileSize: String(r['fileSize'] ?? r['file_size'] ?? ''),
+      }));
+      set({ recordings: recs });
+    } catch (err) {
+      // fallback to mock
+      set({ recordings: generateMockRecordings() });
+    }
+  },
+  fetchTimeline: async (cameraId: string, date: Date) => {
+    try {
+      const d = date.toISOString().slice(0, 10);
+      const res = await fetch(`/api/timeline?cameraId=${encodeURIComponent(cameraId)}&date=${d}`);
+      if (!res.ok) throw new Error('no timeline');
+      const raw = (await res.json()) as Array<Record<string, unknown>>;
+      const segs: RecordingSegment[] = raw.map((s) => ({
+        startTime: String(s['startTime'] ?? s['start_time'] ?? ''),
+        endTime: String(s['endTime'] ?? s['end_time'] ?? ''),
+        duration: Number(s['duration'] ?? 0),
+        hasRecording: Boolean(s['hasRecording'] ?? s['has_recording'] ?? false),
+      }));
+      set({ timelineSegments: segs });
+    } catch (err) {
+      // fallback to generated mock timeline
+      set({ timelineSegments: generateMockTimeline() });
+    }
+  },
   setSelectedDate: (date) => set({ selectedDate: date }),
   setSelectedCameraId: (cameraId) => set({ selectedCameraId: cameraId }),
   setCurrentTime: (time) => set({ currentTime: time }),
