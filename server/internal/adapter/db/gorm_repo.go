@@ -3,6 +3,8 @@ package dbadapter
 import (
 	"database/sql"
 	"log"
+	"os"
+	"path/filepath"
 
 	"github.com/boytur/cctv-recording-center/server/internal/domain"
 	gsqlite "gorm.io/driver/sqlite"
@@ -35,6 +37,10 @@ type GormCameraRepo struct {
 func NewGormDB(path string) (*gorm.DB, error) {
 	if path == "" {
 		path = "data/server.db"
+	}
+	// ensure parent directory exists so the sqlite file can be created
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return nil, err
 	}
 	// open database using modernc.org/sqlite driver (pure-Go) and pass the
 	// *sql.DB to GORM using gorm's OpenDB.
