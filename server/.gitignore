@@ -1,0 +1,19 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, build cache
+*.test
+
+# Vendor
+/vendor/
+
+# Environment files
+.env
+
+# Editor
+.vscode/
+*.swp
