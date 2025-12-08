@@ -16,8 +16,8 @@ cd e:\app\cctv-recording-center\server
 # download deps and tidy modules
 go get ./...
 go mod tidy
-# run
-go run .
+# run the clean-architecture server (cmd entrypoint)
+go run ./cmd/server
 ```
 
 Build executable (PowerShell):
@@ -36,3 +36,29 @@ Next steps:
 - Add endpoints to create/update/delete cameras.
 - Add configuration for DB path and migration control.
 - Add authentication and CORS if the client will call the API from a browser.
+
+Local development with Air (live-reload)
+
+This project now uses the pure-Go `modernc.org/sqlite` driver so a C toolchain is not required during development.
+
+1. Install `air` (once):
+
+```powershell
+go install github.com/cosmtrek/air/v2/cmd/air@latest
+```
+
+2. Start live-reload in the `server` directory:
+
+```powershell
+cd e:\app\cctv-recording-center\server
+air
+```
+
+Or use the provided helper script which installs `air` if missing and runs it:
+
+```powershell
+cd e:\app\cctv-recording-center\server\scripts
+.\dev.ps1
+```
+
+Air is configured via the `.air.toml` file at the repository root of the `server`.

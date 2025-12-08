@@ -17,3 +17,21 @@
 # Editor
 .vscode/
 *.swp
+./server/scripts/tmp/*
+
+# Air / build temp
+tmp/
+tmp/*
+
+# Local built server binaries
+cctv-server.exe
+*.exe
+
+# scripts temp
+scripts/tmp/
+
+# Database files
+data/
+data/*
+data/*.db
+data/server.db

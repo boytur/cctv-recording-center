@@ -1,0 +1,15 @@
+# Air config for live-reload during development (pure-Go sqlite driver)
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  # Build the cmd/server entrypoint into tmp binary. On Windows produce a .exe
+  # so the process can be executed by the OS.
+  cmd = "go build -o ./tmp/cctv-server.exe ./cmd/server"
+  bin = "./tmp/cctv-server.exe"
+  include_ext = ["go","tpl","tmpl","html"]
+  exclude_dir = ["tmp","vendor",".git"]
+  build_delay = 400
+
+[log]
+  time = true
