@@ -1,9 +1,18 @@
 import Header from '@/components/Header';
 import CameraCard from '@/components/CameraCard';
 import { useCameraStore } from '@/store/cameraStore';
+import { useEffect } from 'react';
 
 const Live = () => {
-  const { cameras } = useCameraStore();
+  const { cameras, fetchCameras } = useCameraStore();
+
+  useEffect(() => {
+    if (fetchCameras) fetchCameras();
+    const t = setInterval(() => {
+      if (fetchCameras) fetchCameras();
+    }, 5000);
+    return () => clearInterval(t);
+  }, [fetchCameras]);
   const onlineCameras = cameras.filter(cam => cam.isOnline);
   const offlineCameras = cameras.filter(cam => !cam.isOnline);
 
@@ -40,7 +49,7 @@ const Live = () => {
 
         {/* Camera list */}
         <div className="space-y-4">
-          {cameras.map((camera) => (
+          {cameras.slice().sort((a, b) => Number(b.isOnline) - Number(a.isOnline)).map((camera) => (
             <CameraCard key={camera.id} camera={camera} />
           ))}
         </div>
