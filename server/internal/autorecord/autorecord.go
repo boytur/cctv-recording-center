@@ -88,7 +88,7 @@ func (m *Manager) checkAndRecord() {
 						// Wait a moment before restarting
 						time.Sleep(2 * time.Second)
 						// Start new recording
-						if err := recorder.StartRecording(cam.ID, cam.Name, cam.RTSPURL); err != nil {
+						if err := recorder.StartRecording(cam.ID, cam.Name, cam.RTSPURL, cam.Username, cam.Password); err != nil {
 							log.Printf("auto-record: failed to restart recording for %s: %v", cam.ID, err)
 						} else {
 							log.Printf("auto-record: restarted recording for camera %s (%s) for new day", cam.ID, cam.Name)
@@ -102,7 +102,7 @@ func (m *Manager) checkAndRecord() {
 
 		// Camera is online but not recording, start recording
 		log.Printf("auto-record: starting automatic recording for camera %s (%s)", cam.ID, cam.Name)
-		if err := recorder.StartRecording(cam.ID, cam.Name, cam.RTSPURL); err != nil {
+		if err := recorder.StartRecording(cam.ID, cam.Name, cam.RTSPURL, cam.Username, cam.Password); err != nil {
 			log.Printf("auto-record: failed to start recording for %s: %v", cam.ID, err)
 		} else {
 			log.Printf("auto-record: successfully started recording for camera %s (%s)", cam.ID, cam.Name)
