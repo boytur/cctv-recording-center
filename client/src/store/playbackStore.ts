@@ -16,6 +16,7 @@ export interface RecordingFile {
   duration: number; // in seconds
   thumbnailUrl: string;
   fileSize: string;
+  url?: string; // Add url field
 }
 
 interface PlaybackState {
@@ -38,57 +39,9 @@ interface PlaybackState {
   skipBackward: (seconds: number) => void;
 }
 
-// Mock data for timeline
-const generateMockTimeline = (): RecordingSegment[] => {
-  const segments: RecordingSegment[] = [];
-  for (let hour = 0; hour < 24; hour++) {
-    // Random recording availability
-    const hasRecording = Math.random() > 0.3;
-    segments.push({
-      startTime: `${hour.toString().padStart(2, '0')}:00`,
-      endTime: `${hour.toString().padStart(2, '0')}:59`,
-      duration: 60,
-      hasRecording,
-    });
-  }
-  return segments;
-};
-
-// Mock recording files
-const generateMockRecordings = (): RecordingFile[] => {
-  const cameras = [
-    { id: 'cam1', name: 'กล้องหน้าบ้าน' },
-    { id: 'cam2', name: 'กล้องหลังบ้าน' },
-    { id: 'cam3', name: 'กล้องโรงรถ' },
-    { id: 'cam4', name: 'กล้องห้องนั่งเล่น' },
-  ];
-
-  const recordings: RecordingFile[] = [];
-  const now = new Date();
-
-  cameras.forEach((cam) => {
-    for (let i = 0; i < 5; i++) {
-      const startTime = new Date(now.getTime() - (i + 1) * 3600000);
-      const duration = Math.floor(Math.random() * 3600) + 600; // 10 min to 1 hour
-      recordings.push({
-        id: `${cam.id}-${i}`,
-        cameraId: cam.id,
-        cameraName: cam.name,
-        startTime,
-        endTime: new Date(startTime.getTime() + duration * 1000),
-        duration,
-        thumbnailUrl: '/placeholder.svg',
-        fileSize: `${Math.floor(Math.random() * 500) + 50} MB`,
-      });
-    }
-  });
-
-  return recordings.sort((a, b) => b.startTime.getTime() - a.startTime.getTime());
-};
-
 export const usePlaybackStore = create<PlaybackState>((set) => ({
   selectedDate: new Date(),
-  selectedCameraId: 'cam1',
+  selectedCameraId: '',
   currentTime: 0,
   isPlaying: false,
   playbackSpeed: 1,
@@ -98,29 +51,47 @@ export const usePlaybackStore = create<PlaybackState>((set) => ({
     try {
       const d = date.toISOString().slice(0, 10);
       const res = await fetch(`/api/recordings?cameraId=${encodeURIComponent(cameraId)}&date=${d}`);
-      if (!res.ok) throw new Error('no recordings');
+      if (!res.ok) {
+        console.error('Failed to fetch recordings:', res.status);
+        set({ recordings: [] });
+        return;
+      }
       const raw = (await res.json()) as Array<Record<string, unknown>>;
+      console.log('Fetched recordings:', raw);
+      
       const recs: RecordingFile[] = raw.map((r) => ({
         id: String(r['id'] ?? ''),
-        cameraId: String(r['cameraId'] ?? r['camera_id'] ?? ''),
-        cameraName: String(r['cameraName'] ?? r['camera_name'] ?? ''),
+        cameraId: String(r['cameraId'] ?? r['camera_id'] ?? cameraId),
+        cameraName: String(r['cameraName'] ?? r['camera_name'] ?? cameraId),
         startTime: new Date(String(r['startTime'] ?? r['start_time'] ?? new Date().toISOString())),
         endTime: new Date(String(r['endTime'] ?? r['end_time'] ?? new Date().toISOString())),
         duration: Number(r['duration'] ?? 0),
         thumbnailUrl: String(r['thumbnailUrl'] ?? r['thumbnail_url'] ?? '/placeholder.svg'),
         fileSize: String(r['fileSize'] ?? r['file_size'] ?? ''),
       }));
-      set({ recordings: recs });
+      
+      // Add url property
+      const recsWithUrl = recs.map(r => ({
+        ...r,
+        url: String((raw.find(x => String(x['id']) === r.id) || {})['url'] ?? ''),
+      }));
+      
+      console.log('Processed recordings:', recsWithUrl);
+      set({ recordings: recsWithUrl });
     } catch (err) {
-      // fallback to mock
-      set({ recordings: generateMockRecordings() });
+      console.error('Error fetching recordings:', err);
+      set({ recordings: [] });
     }
   },
   fetchTimeline: async (cameraId: string, date: Date) => {
     try {
       const d = date.toISOString().slice(0, 10);
       const res = await fetch(`/api/timeline?cameraId=${encodeURIComponent(cameraId)}&date=${d}`);
-      if (!res.ok) throw new Error('no timeline');
+      if (!res.ok) {
+        console.error('Failed to fetch timeline:', res.status);
+        set({ timelineSegments: [] });
+        return;
+      }
       const raw = (await res.json()) as Array<Record<string, unknown>>;
       const segs: RecordingSegment[] = raw.map((s) => ({
         startTime: String(s['startTime'] ?? s['start_time'] ?? ''),
@@ -130,8 +101,8 @@ export const usePlaybackStore = create<PlaybackState>((set) => ({
       }));
       set({ timelineSegments: segs });
     } catch (err) {
-      // fallback to generated mock timeline
-      set({ timelineSegments: generateMockTimeline() });
+      console.error('Error fetching timeline:', err);
+      set({ timelineSegments: [] });
     }
   },
   setSelectedDate: (date) => set({ selectedDate: date }),
