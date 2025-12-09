@@ -7,4 +7,6 @@ type CameraRepository interface {
 	List() ([]*domain.Camera, error)
 	GetByID(id string) (*domain.Camera, error)
 	Create(c *domain.Camera) error
+	Update(c *domain.Camera) error
+	Delete(id string) error
 }
