@@ -2,7 +2,6 @@ package dbadapter
 
 import (
 	"database/sql"
-	"log"
 	"os"
 	"path/filepath"
 
@@ -57,18 +56,7 @@ func NewGormDB(path string) (*gorm.DB, error) {
 	if err := db.AutoMigrate(&gormCamera{}); err != nil {
 		return nil, err
 	}
-	// seed sample data if empty
-	var cnt int64
-	db.Model(&gormCamera{}).Count(&cnt)
-	if cnt == 0 {
-		seed := []gormCamera{
-			{ID: "cam1", Name: "Front Gate", Location: "Front Gate", RTSPURL: "rtsp://192.168.1.110/Streaming/Channels/102", Status: "online"},
-			{ID: "cam2", Name: "Parking", Location: "Parking", RTSPURL: "rtsp://192.168.1.111/Streaming/Channels/102", Status: "offline"},
-		}
-		if err := db.Create(&seed).Error; err != nil {
-			log.Printf("failed to seed cameras: %v", err)
-		}
-	}
+	// No seed data - cameras will be added via UI
 	return db, nil
 }
 
