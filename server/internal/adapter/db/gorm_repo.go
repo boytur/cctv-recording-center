@@ -14,18 +14,20 @@ import (
 
 // gormCamera is the GORM representation of domain.Camera.
 type gormCamera struct {
-	ID     string `gorm:"primaryKey" json:"id"`
-	Name   string `json:"name"`
-	Status string `json:"status"`
+	ID       string `gorm:"primaryKey" json:"id"`
+	Name     string `json:"name"`
+	Location string `json:"location"`
+	RTSPURL  string `json:"rtsp_url"`
+	Status   string `json:"status"`
 }
 
 // Ensure mapping between domain and gorm model.
 func (g *gormCamera) toDomain() *domain.Camera {
-	return &domain.Camera{ID: g.ID, Name: g.Name, Status: g.Status}
+	return &domain.Camera{ID: g.ID, Name: g.Name, Location: g.Location, RTSPURL: g.RTSPURL, Status: g.Status}
 }
 
 func fromDomain(d *domain.Camera) *gormCamera {
-	return &gormCamera{ID: d.ID, Name: d.Name, Status: d.Status}
+	return &gormCamera{ID: d.ID, Name: d.Name, Location: d.Location, RTSPURL: d.RTSPURL, Status: d.Status}
 }
 
 // GormCameraRepo implements repository via GORM.
@@ -59,7 +61,10 @@ func NewGormDB(path string) (*gorm.DB, error) {
 	var cnt int64
 	db.Model(&gormCamera{}).Count(&cnt)
 	if cnt == 0 {
-		seed := []gormCamera{{ID: "cam1", Name: "Front Gate", Status: "online"}, {ID: "cam2", Name: "Parking", Status: "offline"}}
+		seed := []gormCamera{
+			{ID: "cam1", Name: "Front Gate", Location: "Front Gate", RTSPURL: "rtsp://192.168.1.110/Streaming/Channels/102", Status: "online"},
+			{ID: "cam2", Name: "Parking", Location: "Parking", RTSPURL: "rtsp://192.168.1.111/Streaming/Channels/102", Status: "offline"},
+		}
 		if err := db.Create(&seed).Error; err != nil {
 			log.Printf("failed to seed cameras: %v", err)
 		}
@@ -97,4 +102,14 @@ func (r *GormCameraRepo) GetByID(id string) (*domain.Camera, error) {
 // Create inserts a new camera.
 func (r *GormCameraRepo) Create(c *domain.Camera) error {
 	return r.db.Create(fromDomain(c)).Error
+}
+
+// Update updates an existing camera.
+func (r *GormCameraRepo) Update(c *domain.Camera) error {
+	return r.db.Model(&gormCamera{}).Where("id = ?", c.ID).Updates(fromDomain(c)).Error
+}
+
+// Delete removes a camera by id.
+func (r *GormCameraRepo) Delete(id string) error {
+	return r.db.Delete(&gormCamera{}, "id = ?", id).Error
 }
