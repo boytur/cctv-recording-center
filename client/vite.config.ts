@@ -14,6 +14,21 @@ export default defineConfig(({ mode }) => ({
         changeOrigin: true,
         secure: false,
       },
+      '/stream_hls': {
+        target: 'http://localhost:2068',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/recordings': {
+        target: 'http://localhost:2068',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/data': {
+        target: 'http://localhost:2068',
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
