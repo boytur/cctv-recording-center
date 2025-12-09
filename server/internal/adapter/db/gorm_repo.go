@@ -17,16 +17,18 @@ type gormCamera struct {
 	Name     string `json:"name"`
 	Location string `json:"location"`
 	RTSPURL  string `json:"rtsp_url"`
+	Username string `json:"username"`
+	Password string `json:"password"`
 	Status   string `json:"status"`
 }
 
 // Ensure mapping between domain and gorm model.
 func (g *gormCamera) toDomain() *domain.Camera {
-	return &domain.Camera{ID: g.ID, Name: g.Name, Location: g.Location, RTSPURL: g.RTSPURL, Status: g.Status}
+	return &domain.Camera{ID: g.ID, Name: g.Name, Location: g.Location, RTSPURL: g.RTSPURL, Username: g.Username, Password: g.Password, Status: g.Status}
 }
 
 func fromDomain(d *domain.Camera) *gormCamera {
-	return &gormCamera{ID: d.ID, Name: d.Name, Location: d.Location, RTSPURL: d.RTSPURL, Status: d.Status}
+	return &gormCamera{ID: d.ID, Name: d.Name, Location: d.Location, RTSPURL: d.RTSPURL, Username: d.Username, Password: d.Password, Status: d.Status}
 }
 
 // GormCameraRepo implements repository via GORM.
