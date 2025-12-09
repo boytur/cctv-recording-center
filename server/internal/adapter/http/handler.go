@@ -64,6 +64,7 @@ func (h *Handler) Recordings(c *gin.Context) {
 	}
 
 	// Read all MP4 files from the directory
+	// Filter: only show manual captures (capture_*.mp4), not auto-recordings (rec_*.mp4)
 	recordings := []map[string]interface{}{}
 	err = filepath.WalkDir(recordingsPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -73,6 +74,12 @@ func (h *Handler) Recordings(c *gin.Context) {
 			return nil
 		}
 		if !strings.HasSuffix(strings.ToLower(d.Name()), ".mp4") {
+			return nil
+		}
+
+		name := d.Name()
+		// Skip auto-recordings (rec_*.mp4) - only show manual captures
+		if strings.HasPrefix(name, "rec_") {
 			return nil
 		}
 
@@ -89,11 +96,10 @@ func (h *Handler) Recordings(c *gin.Context) {
 		}
 
 		// Extract timestamp from filename if possible
-		// Format: rec_YYYYMMDD_HHMMSS.mp4
+		// Format: capture_YYYYMMDD_HHMMSS.mp4
 		var startTime time.Time
-		name := d.Name()
-		if strings.HasPrefix(name, "rec_") && len(name) >= 19 {
-			timeStr := name[4:19] // YYYYMMDD_HHMMSS
+		if strings.HasPrefix(name, "capture_") && len(name) >= 23 {
+			timeStr := name[8:23] // YYYYMMDD_HHMMSS
 			if t, err := time.Parse("20060102_150405", timeStr); err == nil {
 				startTime = t
 			}
@@ -118,6 +124,7 @@ func (h *Handler) Recordings(c *gin.Context) {
 			"fileSizeBytes": fileSize,
 			"url":           "/" + relPath,
 			"thumbnailUrl":  "/placeholder.svg",
+			"type":          "manual",
 		})
 
 		return nil
@@ -139,18 +146,159 @@ func (h *Handler) Timeline(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "missing cameraId or date"})
 		return
 	}
+
+	// Parse date
+	targetDate, err := time.Parse("2006-01-02", date)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid date format"})
+		return
+	}
+
+	// Build path to recordings directory
+	recordingsPath := filepath.Join("data", "recordings", cameraId, targetDate.Format("2006-01-02"))
+
+	// Check if directory exists
+	if _, err := os.Stat(recordingsPath); os.IsNotExist(err) {
+		c.JSON(http.StatusOK, []map[string]interface{}{})
+		return
+	}
+
+	// Create hour map to track which hours have recordings
+	hourMap := make(map[int]bool)
+
+	// Read auto-recording files to determine timeline
+	filepath.WalkDir(recordingsPath, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		name := d.Name()
+		if !strings.HasPrefix(name, "rec_") || !strings.HasSuffix(strings.ToLower(name), ".mp4") {
+			return nil
+		}
+
+		info, _ := d.Info()
+		if info != nil && info.Size() > 0 {
+			// Extract hour from filename
+			if len(name) >= 19 {
+				timeStr := name[4:19]
+				if t, err := time.Parse("20060102_150405", timeStr); err == nil {
+					hourMap[t.Hour()] = true
+				}
+			}
+		}
+		return nil
+	})
+
+	// Build timeline segments
 	segments := []map[string]interface{}{}
-	// simple pattern: alternate recording availability
 	for hour := 0; hour < 24; hour++ {
-		hasRecording := (hour%2 == 0)
 		segments = append(segments, map[string]interface{}{
 			"startTime":    fmt.Sprintf("%02d:00", hour),
 			"endTime":      fmt.Sprintf("%02d:59", hour),
 			"duration":     60,
-			"hasRecording": hasRecording,
+			"hasRecording": hourMap[hour],
 		})
 	}
 	c.JSON(http.StatusOK, segments)
+}
+
+// PlaybackVideo returns concatenated list of auto-recording files for a specific day
+func (h *Handler) PlaybackVideo(c *gin.Context) {
+	cameraId := c.Query("cameraId")
+	date := c.Query("date")
+	if cameraId == "" || date == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing cameraId or date"})
+		return
+	}
+
+	// Parse date
+	targetDate, err := time.Parse("2006-01-02", date)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid date format"})
+		return
+	}
+
+	// Build path to recordings directory
+	recordingsPath := filepath.Join("data", "recordings", cameraId, targetDate.Format("2006-01-02"))
+
+	if _, err := os.Stat(recordingsPath); os.IsNotExist(err) {
+		c.JSON(http.StatusOK, []map[string]interface{}{})
+		return
+	}
+
+	// Collect all auto-recording files (rec_*.mp4)
+	var files []map[string]interface{}
+	filepath.WalkDir(recordingsPath, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		name := d.Name()
+		if !strings.HasPrefix(name, "rec_") || !strings.HasSuffix(strings.ToLower(name), ".mp4") {
+			return nil
+		}
+
+		info, err := d.Info()
+		if err != nil || info.Size() == 0 {
+			return nil
+		}
+
+		var startTime time.Time
+		if len(name) >= 19 {
+			timeStr := name[4:19]
+			if t, err := time.Parse("20060102_150405", timeStr); err == nil {
+				startTime = t
+			}
+		}
+		if startTime.IsZero() {
+			startTime = info.ModTime()
+		}
+
+		relPath := strings.TrimPrefix(path, "data/")
+		relPath = strings.ReplaceAll(relPath, "\\", "/")
+
+		files = append(files, map[string]interface{}{
+			"url":       "/" + relPath,
+			"startTime": startTime.Format(time.RFC3339),
+			"filename":  name,
+		})
+		return nil
+	})
+
+	// Sort by start time
+	type fileInfo struct {
+		URL       string
+		StartTime time.Time
+		Filename  string
+	}
+	var sortedFiles []fileInfo
+	for _, f := range files {
+		st, _ := time.Parse(time.RFC3339, f["startTime"].(string))
+		sortedFiles = append(sortedFiles, fileInfo{
+			URL:       f["url"].(string),
+			StartTime: st,
+			Filename:  f["filename"].(string),
+		})
+	}
+
+	// Sort by time
+	for i := 0; i < len(sortedFiles); i++ {
+		for j := i + 1; j < len(sortedFiles); j++ {
+			if sortedFiles[i].StartTime.After(sortedFiles[j].StartTime) {
+				sortedFiles[i], sortedFiles[j] = sortedFiles[j], sortedFiles[i]
+			}
+		}
+	}
+
+	result := []map[string]interface{}{}
+	for _, f := range sortedFiles {
+		result = append(result, map[string]interface{}{
+			"url":       f.URL,
+			"startTime": f.StartTime.Format(time.RFC3339),
+			"filename":  f.Filename,
+		})
+	}
+
+	c.JSON(http.StatusOK, result)
 }
 
 // Stream returns metadata for a camera stream (RTSP URL). The frontend uses
@@ -241,6 +389,8 @@ func (h *Handler) CreateCamera(c *gin.Context) {
 		Name     string `json:"name"`
 		Location string `json:"location"`
 		RTSPURL  string `json:"rtsp_url"`
+		Username string `json:"username,omitempty"`
+		Password string `json:"password,omitempty"`
 	}
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
@@ -251,6 +401,8 @@ func (h *Handler) CreateCamera(c *gin.Context) {
 		Name:     payload.Name,
 		Location: payload.Location,
 		RTSPURL:  payload.RTSPURL,
+		Username: payload.Username,
+		Password: payload.Password,
 	}
 	created, err := h.uc.CreateCamera(cam)
 	if err != nil {
@@ -271,13 +423,15 @@ func (h *Handler) UpdateCamera(c *gin.Context) {
 		Name     string `json:"name"`
 		Location string `json:"location"`
 		RTSPURL  string `json:"rtsp_url"`
+		Username string `json:"username,omitempty"`
+		Password string `json:"password,omitempty"`
 		Status   string `json:"status"`
 	}
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
 	}
-	cam := &usecase.CameraDTO{ID: id, Name: payload.Name, Location: payload.Location, RTSPURL: payload.RTSPURL, Status: payload.Status}
+	cam := &usecase.CameraDTO{ID: id, Name: payload.Name, Location: payload.Location, RTSPURL: payload.RTSPURL, Username: payload.Username, Password: payload.Password, Status: payload.Status}
 	updated, err := h.uc.UpdateCamera(cam)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update"})
@@ -341,7 +495,7 @@ func (h *Handler) StartRecording(c *gin.Context) {
 	}
 
 	// Start recording
-	if err := recorder.StartRecording(camera.ID, camera.Name, camera.RTSPURL); err != nil {
+	if err := recorder.StartRecording(camera.ID, camera.Name, camera.RTSPURL, camera.Username, camera.Password); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to start recording: %v", err)})
 		return
 	}

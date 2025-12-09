@@ -40,6 +40,7 @@ func SetupRouter(h *Handler) *gin.Engine {
 		api.GET("/recordings", h.Recordings)
 		api.GET("/recordings/active", h.ActiveRecordings)
 		api.GET("/timeline", h.Timeline)
+		api.GET("/playback/video", h.PlaybackVideo)
 		api.POST("/cameras/:id/start-recording", h.StartRecording)
 		api.POST("/cameras/:id/stop-recording", h.StopRecording)
 
