@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import VideoPlayer from './VideoPlayer';
 import type { Camera as CameraType } from '@/store/cameraStore';
 import { toast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
+import { useState } from 'react';
 
 interface CameraCardProps {
   camera: CameraType;
@@ -10,6 +12,7 @@ interface CameraCardProps {
 
 const CameraCard = ({ camera }: CameraCardProps) => {
   const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
 
   const handleSnapshot = () => {
     toast({
@@ -19,10 +22,8 @@ const CameraCard = ({ camera }: CameraCardProps) => {
   };
 
   const handleFullscreen = () => {
-    toast({
-      title: 'โหมดเต็มจอ',
-      description: 'กดอีกครั้งเพื่อออก',
-    });
+    // open dialog to show larger live view
+    setOpen(true);
   };
 
   const goToPlayback = () => {
@@ -94,6 +95,15 @@ const CameraCard = ({ camera }: CameraCardProps) => {
           <span className="text-sm font-medium text-primary">ย้อนหลัง</span>
         </button>
       </div>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="w-full max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>{camera.name}</DialogTitle>
+          </DialogHeader>
+          <VideoPlayer src={camera.streamUrl} isLive={camera.isOnline} />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
