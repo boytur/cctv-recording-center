@@ -20,6 +20,7 @@ const Playback = () => {
     currentTime,
     isPlaying,
     playbackSpeed,
+    recordings,
     setSelectedDate,
     setSelectedCameraId,
     setIsPlaying,
@@ -31,8 +32,16 @@ const Playback = () => {
   } = usePlaybackStore();
 
   const [showCameraSelect, setShowCameraSelect] = useState(false);
+  const [currentRecording, setCurrentRecording] = useState<any>(null);
 
   const selectedCamera = cameras.find((c) => c.id === selectedCameraId);
+
+  // Auto-select first camera if none selected
+  useEffect(() => {
+    if (cameras.length > 0 && !selectedCameraId) {
+      setSelectedCameraId(cameras[0].id);
+    }
+  }, [cameras, selectedCameraId, setSelectedCameraId]);
 
   useEffect(() => {
     if (fetchRecordings && fetchTimeline && selectedCameraId && selectedDate) {
@@ -40,6 +49,25 @@ const Playback = () => {
       fetchTimeline(selectedCameraId, selectedDate);
     }
   }, [fetchRecordings, fetchTimeline, selectedCameraId, selectedDate]);
+
+  // Find the recording that matches current time
+  useEffect(() => {
+    if (recordings.length > 0) {
+      // Find recording based on current time (convert seconds to time of day)
+      const currentTimeDate = new Date(selectedDate);
+      currentTimeDate.setHours(0, 0, 0, 0);
+      currentTimeDate.setSeconds(currentTime);
+      
+      const rec = recordings.find((r) => {
+        const start = new Date(r.startTime);
+        const end = new Date(r.startTime);
+        end.setSeconds(end.getSeconds() + r.duration);
+        return currentTimeDate >= start && currentTimeDate <= end;
+      });
+      
+      setCurrentRecording(rec || recordings[0]);
+    }
+  }, [recordings, currentTime, selectedDate]);
 
   const formatCurrentTime = () => {
     const hours = Math.floor(currentTime / 3600);
@@ -51,10 +79,26 @@ const Playback = () => {
   const speeds = [0.5, 1, 2];
 
   const handleDownload = () => {
-    toast({
-      title: 'กำลังดาวน์โหลด',
-      description: 'กำลังเตรียมไฟล์คลิป กรุณารอสักครู่...',
-    });
+    if (currentRecording && currentRecording.url) {
+      // Create a temporary link and trigger download
+      const link = document.createElement('a');
+      link.href = currentRecording.url;
+      link.download = currentRecording.id || 'recording.mp4';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast({
+        title: 'กำลังดาวน์โหลด',
+        description: `กำลังดาวน์โหลด ${currentRecording.id}`,
+      });
+    } else {
+      toast({
+        title: 'ไม่พบไฟล์',
+        description: 'ไม่มีคลิปบันทึกให้ดาวน์โหลด',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -121,11 +165,23 @@ const Playback = () => {
 
         {/* Video Player */}
         <div className="bg-card rounded-xl border border-border overflow-hidden">
-          <VideoPlayer 
-            src={selectedCamera?.streamUrl || ''} 
-            isLive={false}
-            showControls={false}
-          />
+          {currentRecording ? (
+            <VideoPlayer 
+              src={currentRecording.url || ''} 
+              isLive={false}
+              showControls={true}
+            />
+          ) : recordings.length > 0 ? (
+            <VideoPlayer 
+              src={recordings[0].url || ''} 
+              isLive={false}
+              showControls={true}
+            />
+          ) : (
+            <div className="aspect-video bg-secondary flex items-center justify-center">
+              <p className="text-muted-foreground">ไม่มีคลิปบันทึกในวันที่เลือก</p>
+            </div>
+          )}
           
           {/* Playback Controls */}
           <div className="p-4 space-y-4">
@@ -205,6 +261,43 @@ const Playback = () => {
 
         {/* Timeline */}
         <Timeline />
+
+        {/* Recording List */}
+        {recordings.length > 0 && (
+          <div className="bg-card rounded-xl border border-border p-4">
+            <h3 className="font-medium text-foreground mb-3">คลิปบันทึก ({recordings.length})</h3>
+            <div className="space-y-2">
+              {recordings.map((rec) => (
+                <button
+                  key={rec.id}
+                  onClick={() => setCurrentRecording(rec)}
+                  className={`w-full p-3 rounded-lg border transition-colors text-left ${
+                    currentRecording?.id === rec.id
+                      ? 'border-primary bg-primary/10'
+                      : 'border-border hover:bg-accent'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">
+                        {new Date(rec.startTime).toLocaleTimeString('th-TH', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        ระยะเวลา: {Math.floor(rec.duration / 60)} นาที
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">{rec.fileSize}</p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
