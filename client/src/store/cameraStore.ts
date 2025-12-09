@@ -7,6 +7,8 @@ export interface Camera {
   streamUrl: string;
   isOnline: boolean;
   isRecording: boolean;
+  username?: string;
+  password?: string;
 }
 
 interface CameraState {
@@ -16,7 +18,7 @@ interface CameraState {
   toggleRecording: (cameraId: string) => Promise<void>;
   updateCameraStatus: (cameraId: string, isOnline: boolean) => void;
   fetchCameras?: () => Promise<void>;
-  createCamera?: (payload: { name: string; location?: string; rtsp_url: string }) => Promise<Camera | null>;
+  createCamera?: (payload: { name: string; location?: string; rtsp_url: string, username?: string, password?: string }) => Promise<Camera | null>;
   deleteCamera?: (cameraId: string) => Promise<boolean>;
 }
 

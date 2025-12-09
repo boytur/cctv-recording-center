@@ -19,6 +19,12 @@ export interface RecordingFile {
   url?: string; // Add url field
 }
 
+export interface PlaybackVideo {
+  url: string;
+  startTime: Date;
+  filename: string;
+}
+
 interface PlaybackState {
   selectedDate: Date;
   selectedCameraId: string;
@@ -26,8 +32,10 @@ interface PlaybackState {
   isPlaying: boolean;
   playbackSpeed: number;
   recordings: RecordingFile[];
+  playbackVideos: PlaybackVideo[];
   timelineSegments: RecordingSegment[];
   fetchRecordings?: (cameraId: string, date: Date) => Promise<void>;
+  fetchPlaybackVideos?: (cameraId: string, date: Date) => Promise<void>;
   fetchTimeline?: (cameraId: string, date: Date) => Promise<void>;
   setSelectedDate: (date: Date) => void;
   setSelectedCameraId: (cameraId: string) => void;
@@ -46,6 +54,7 @@ export const usePlaybackStore = create<PlaybackState>((set) => ({
   isPlaying: false,
   playbackSpeed: 1,
   recordings: [],
+  playbackVideos: [],
   timelineSegments: [],
   fetchRecordings: async (cameraId: string, date: Date) => {
     try {
@@ -81,6 +90,27 @@ export const usePlaybackStore = create<PlaybackState>((set) => ({
     } catch (err) {
       console.error('Error fetching recordings:', err);
       set({ recordings: [] });
+    }
+  },
+  fetchPlaybackVideos: async (cameraId: string, date: Date) => {
+    try {
+      const d = date.toISOString().slice(0, 10);
+      const res = await fetch(`/api/playback/video?cameraId=${encodeURIComponent(cameraId)}&date=${d}`);
+      if (!res.ok) {
+        console.error('Failed to fetch playback videos:', res.status);
+        set({ playbackVideos: [] });
+        return;
+      }
+      const raw = (await res.json()) as Array<Record<string, unknown>>;
+      const videos: PlaybackVideo[] = raw.map((v) => ({
+        url: String(v['url'] ?? ''),
+        startTime: new Date(String(v['startTime'] ?? new Date().toISOString())),
+        filename: String(v['filename'] ?? ''),
+      }));
+      set({ playbackVideos: videos });
+    } catch (err) {
+      console.error('Error fetching playback videos:', err);
+      set({ playbackVideos: [] });
     }
   },
   fetchTimeline: async (cameraId: string, date: Date) => {

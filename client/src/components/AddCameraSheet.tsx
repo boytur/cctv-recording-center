@@ -12,6 +12,8 @@ const AddCameraSheet: React.FC = () => {
   const [name, setName] = useState('');
   const [location, setLocation] = useState('');
   const [rtsp, setRtsp] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const submit = async () => {
@@ -21,7 +23,13 @@ const AddCameraSheet: React.FC = () => {
     }
     if (!createCamera) return;
     setLoading(true);
-    const cam = await createCamera({ name: name.trim(), location: location.trim(), rtsp_url: rtsp.trim() });
+    const cam = await createCamera({ 
+      name: name.trim(), 
+      location: location.trim(), 
+      rtsp_url: rtsp.trim(),
+      username: username.trim(),
+      password: password.trim()
+    });
     setLoading(false);
     if (!cam) {
       toast({ title: 'ผิดพลาด', description: 'ไม่สามารถเพิ่มกล้องได้' });
@@ -32,6 +40,8 @@ const AddCameraSheet: React.FC = () => {
     setName('');
     setLocation('');
     setRtsp('');
+    setUsername('');
+    setPassword('');
   };
 
   return (
@@ -58,6 +68,14 @@ const AddCameraSheet: React.FC = () => {
           <div>
             <Label>RTSP URL</Label>
             <Input value={rtsp} onChange={(e) => setRtsp(e.target.value)} placeholder="rtsp://192.168.1.110/Streaming/Channels/102" />
+          </div>
+          <div>
+            <Label>Username (ถ้ามี)</Label>
+            <Input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="admin" />
+          </div>
+          <div>
+            <Label>Password (ถ้ามี)</Label>
+            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="********" />
           </div>
         </div>
 
