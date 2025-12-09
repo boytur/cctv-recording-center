@@ -20,6 +20,8 @@ type CameraDTO struct {
 	Name     string
 	Location string
 	RTSPURL  string
+	Username string
+	Password string
 	Status   string
 }
 
@@ -44,7 +46,15 @@ func (u *CameraUsecase) CreateCamera(dto *CameraDTO) (*domain.Camera, error) {
 	if id == "" {
 		id = uuid.New().String()
 	}
-	cam := &domain.Camera{ID: id, Name: dto.Name, Location: dto.Location, RTSPURL: dto.RTSPURL, Status: dto.Status}
+	cam := &domain.Camera{
+		ID:       id,
+		Name:     dto.Name,
+		Location: dto.Location,
+		RTSPURL:  dto.RTSPURL,
+		Username: dto.Username,
+		Password: dto.Password,
+		Status:   dto.Status,
+	}
 	if cam.Status == "" {
 		cam.Status = "unknown"
 	}
@@ -68,6 +78,12 @@ func (u *CameraUsecase) UpdateCamera(dto *CameraDTO) (*domain.Camera, error) {
 	}
 	if dto.RTSPURL != "" {
 		existing.RTSPURL = dto.RTSPURL
+	}
+	if dto.Username != "" {
+		existing.Username = dto.Username
+	}
+	if dto.Password != "" {
+		existing.Password = dto.Password
 	}
 	if dto.Status != "" {
 		existing.Status = dto.Status
